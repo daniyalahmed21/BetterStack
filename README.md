@@ -12,7 +12,7 @@ User only gives:
 
 That’s it.
 
-## 1️⃣ Core Components (Only What You Need)
+## 1️⃣ Core Components
 
 ```
 User Dashboard
@@ -30,7 +30,7 @@ Postgres (results)
 Alerts
 ```
 
-## 2️⃣ Step-by-Step Flow (Simple Language)
+## 2️⃣ Step-by-Step Flow 
 
 ### Step 1: User adds a website
 
@@ -119,7 +119,7 @@ This builds:
 * Incidents
 
 
-### Step 6: Incident detection (important)
+### Step 6: Incident detection 
 
 You **don’t alert on first failure**.
 
