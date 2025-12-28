@@ -1,32 +1,202 @@
-# BetterStack
+# Active Monitoring (Uptime Only)
 
-How the Flow Works Together 
+* **actively pings websites**
+* **does NOT rely on the user’s code**
+* works even if their server is **completely dead**
 
-1. Client / Website / Service sends logs, metrics, heartbeats → API.
+User only gives:
 
-2. API validates and puts data into a queue.
+* Website URL
+* Check interval
+* Alert rules
 
-3. Worker picks up the data:
+That’s it.
 
-4. Saves logs in DB
+## 1️⃣ Core Components (Only What You Need)
 
-5. Checks metrics
+```
+User Dashboard
+   ↓
+API (Bun + Express)
+   ↓
+Redis (Jobs Queue)
+   ↓
+Uptime Workers (per region)
+   ↓
+Target Websites
+   ↓
+Postgres (results)
+   ↓
+Alerts
+```
 
-6. Checks heartbeat timestamps
+## 2️⃣ Step-by-Step Flow (Simple Language)
 
-7. Creates alerts if something is wrong
+### Step 1: User adds a website
 
-8. Notifications are sent to users/admins.
+User enters:
 
-9. Dashboard shows logs, metrics, uptime, and incidents.
+* [https://example.com](https://example.com)
+* Check every 60 seconds
 
-![alt text](System-Design.png)
+API saves this in DB:
 
-## Day 1 Tasks
-- Init Turborepo ✅
-- Add Prisma
-- Setup Postgres
-- Create core tables
-- Build log ingestion endpoint
-- Testing
+```
+website
+- id
+- url
+- interval
+- enabled
+```
 
+### Step 2: Scheduler creates uptime jobs
+
+Every X seconds:
+
+* Scheduler finds websites that need checking
+* Pushes jobs to Redis
+
+Example Redis job:
+
+```
+{
+  websiteId: "abc123",
+  url: "https://example.com"
+}
+```
+
+### Step 3: Workers pick jobs
+
+Workers:
+
+* Run forever
+* Listen to Redis streams
+* Pick jobs assigned to their region
+
+Your code:
+
+```ts
+xReadGroup(REGION_ID, WORKER_ID)
+```
+
+This means:
+
+> “Give me websites to check”
+
+
+### Step 4: Worker checks website
+
+Worker:
+
+* Starts timer
+* Calls `axios.get(url)`
+* Waits for response or timeout
+
+Results:
+
+* Response → UP
+* Error / timeout → DOWN
+
+
+### Step 5: Store uptime result
+
+Each check creates one row:
+
+```
+website_tick
+- website_id
+- region_id
+- status (Up / Down)
+- response_time_ms
+- timestamp
+```
+
+This builds:
+
+* History
+* Graphs
+* SLA
+* Incidents
+
+
+### Step 6: Incident detection (important)
+
+You **don’t alert on first failure**.
+
+Instead:
+
+* Check last N ticks
+* Example rule:
+
+  * Down 3 times in a row → Incident
+
+```
+incident
+- website_id
+- started_at
+- status (open / resolved)
+```
+
+---
+
+### Step 7: Alert user
+
+When incident starts:
+
+* Send email
+* Send Slack
+* Send webhook
+
+When recovered:
+
+* Send recovery notification
+
+
+## 3️⃣ Full Active Monitoring Diagram
+
+```
+┌──────────────┐
+│   User UI    │
+│  (Dashboard) │
+└──────┬───────┘
+       │
+       ▼
+┌────────────────────┐
+│ API Server         │
+│ (Bun + Express)    │
+│ - Websites         │
+│ - Alerts           │
+└──────┬─────────────┘
+       │
+       ▼
+┌────────────────────┐
+│ Redis Streams      │
+│ uptime_jobs        │
+└──────┬─────────────┘
+       │
+       ▼
+┌────────────────────────────┐
+│ Uptime Worker              │
+│ REGION = eu / us / asia    │
+│                            │
+│ axios.get(url)             │
+└──────┬─────────────────────┘
+       │
+       ▼
+┌────────────────────┐
+│ Target Website     │
+└──────┬─────────────┘
+       │
+       ▼
+┌────────────────────┐
+│ Postgres           │
+│ website_tick       │
+│ incident           │
+└──────┬─────────────┘
+       │
+       ▼
+┌────────────────────┐
+│ Alert Service      │
+│ Email / Slack      │
+└────────────────────┘
+```
