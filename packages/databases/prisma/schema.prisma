@@ -14,19 +14,21 @@ datasource db {
 }
 
 model User {
-  id            String    @id
+  id            String   @id @default(cuid())
+  email         String   @unique
   name          String
-  email         String
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean  @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  @@unique([email])
+  sessions Session[]
+  accounts Account[]
+  websites Website[]
+
   @@map("user")
 }
+
 
 model Session {
   id        String   @id
@@ -74,4 +76,48 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Website {
+  id        String   @id @default(uuid())
+  url       String
+  userId    String
+  createdAt DateTime @default(now())
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticks WebsiteTick[]
+
+  @@index([userId])
+  @@unique([userId, url])
+}
+
+
+model Region {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  ticks WebsiteTick[]
+}
+
+model WebsiteTick {
+  id              String @id @default(uuid())
+  websiteId       String
+  regionId        String
+  responseTimeMs  Int
+  status          WebsiteStatus
+  createdAt       DateTime @default(now())
+
+  website Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  region  Region  @relation(fields: [regionId], references: [id])
+
+  @@index([websiteId, createdAt])
+  @@index([regionId, createdAt])
+}
+
+
+enum WebsiteStatus {
+  Up
+  Down
+  Unknown
 }
