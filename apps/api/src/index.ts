@@ -3,6 +3,7 @@ import cors from "cors";
 import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
 import { auth } from "@repo/auth";
 import websiteRoutes from "./routes/website";
+import { startScheduler } from "./scheduler";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -19,7 +20,11 @@ app.use(
 app.all("/api/auth/*splat", toNodeHandler(auth));
 
 app.use(express.json());
+
 app.use("/websites", websiteRoutes);
+
+startScheduler();
+
 
 app.get("/api/auth/ok", (req: Request, res: Response) => {
   res.json({ status: "ok" });
