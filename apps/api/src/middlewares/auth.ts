@@ -2,15 +2,6 @@ import type { Request, Response, NextFunction } from "express";
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "@repo/auth";
 
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string;
-      session?: any;
-    }
-  }
-}
-
 export async function requireAuth(
   req: Request,
   res: Response,
@@ -28,6 +19,7 @@ export async function requireAuth(
     req.userId = session.user.id;
     req.session = session;
     next();
+    
   } catch (error) {
     console.error("Auth error:", error);
     return res.status(401).json({ error: "Unauthorized" });
