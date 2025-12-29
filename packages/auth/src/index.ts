@@ -12,4 +12,6 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7, 
   },
+  // Allow requests without Origin header in development
+  trustHost: true,
 });
