@@ -86,6 +86,7 @@ model Website {
   lastCheckedAt DateTime?
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   ticks         WebsiteTick[]
+  incidents     Incident[]
 
   @@unique([userId, url])
   @@index([userId])
@@ -118,4 +119,21 @@ enum WebsiteStatus {
   Up
   Down
   Unknown
+}
+
+model Incident {
+  id        String         @id @default(cuid())
+  websiteId String
+  startedAt DateTime
+  endedAt   DateTime?
+  status    IncidentStatus
+
+  website Website @relation(fields: [websiteId], references: [id])
+
+  @@index([websiteId, status])
+}
+
+enum IncidentStatus {
+  Open
+  Closed
 }
