@@ -29,7 +29,6 @@ model User {
   @@map("user")
 }
 
-
 model Session {
   id        String   @id
   expiresAt DateTime
@@ -79,18 +78,18 @@ model Verification {
 }
 
 model Website {
-  id        String   @id @default(uuid())
-  url       String
-  userId    String
-  createdAt DateTime @default(now())
+  id            String        @id @default(uuid())
+  url           String
+  userId        String
+  createdAt     DateTime      @default(now())
+  status        WebsiteStatus @default(Unknown)
+  lastCheckedAt DateTime?
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticks         WebsiteTick[]
 
-  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ticks WebsiteTick[]
-
-  @@index([userId])
   @@unique([userId, url])
+  @@index([userId])
 }
-
 
 model Region {
   id        String   @id @default(uuid())
@@ -101,12 +100,12 @@ model Region {
 }
 
 model WebsiteTick {
-  id              String @id @default(uuid())
-  websiteId       String
-  regionId        String
-  responseTimeMs  Int
-  status          WebsiteStatus
-  createdAt       DateTime @default(now())
+  id             String        @id @default(uuid())
+  websiteId      String
+  regionId       String
+  responseTimeMs Int
+  status         WebsiteStatus
+  createdAt      DateTime      @default(now())
 
   website Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
   region  Region  @relation(fields: [regionId], references: [id])
@@ -114,7 +113,6 @@ model WebsiteTick {
   @@index([websiteId, createdAt])
   @@index([regionId, createdAt])
 }
-
 
 enum WebsiteStatus {
   Up
