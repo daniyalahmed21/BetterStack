@@ -1,6 +1,7 @@
 import axios from "axios";
 import { createClient } from "redis";
 import { prisma } from "@repo/db";
+import { evaluateWebsiteStatus } from "./evaluateWebsiteStatus";
 
 const REGION_ID = process.env.REGION_ID || "default-region";
 const WORKER_ID = process.env.WORKER_ID || `worker-${process.pid}`;
@@ -71,6 +72,8 @@ async function fetchWebsite(url: string, websiteId: string): Promise<void> {
         websiteId: websiteId,
       },
     });
+
+    await evaluateWebsiteStatus(websiteId);
   }
 }
 
