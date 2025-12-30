@@ -73,7 +73,7 @@ async function fetchWebsite(url: string, websiteId: string): Promise<void> {
     tickStatus === "Down" ||
     (tickStatus === "Up" && website?.status === "Down")
   ) {
-    await evaluateWebsiteStatus(websiteId);
+    await evaluateWebsiteStatus(websiteId ,website?.status);
   }
 }
 
