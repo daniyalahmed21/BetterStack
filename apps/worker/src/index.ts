@@ -42,40 +42,41 @@ type MessageType = {
 
 async function fetchWebsite(url: string, websiteId: string): Promise<void> {
   const startTime = Date.now();
+  let tickStatus: "Up" | "Down";
 
   try {
-    const response = await axios.get(url, { timeout: 10000 });
-    const responseTime = Date.now() - startTime;
-    console.log(
-      `[${WORKER_ID}] ${url} is UP (${response.status}) - ${responseTime}ms`
-    );
+    await axios.get(url, { timeout: 10000 });
+    tickStatus = "Up";
+  } catch {
+    tickStatus = "Down";
+  }
 
-    await prisma.websiteTick.create({
-      data: {
-        responseTimeMs: responseTime,
-        status: "Up",
-        regionId: REGION_ID,
-        websiteId: websiteId,
-      },
-    });
-  } catch (err: any) {
-    const responseTime = Date.now() - startTime;
-    console.log(
-      `[${WORKER_ID}] ${url} is DOWN - ${err.message} (${responseTime}ms)`
-    );
+  const responseTime = Date.now() - startTime;
 
-    await prisma.websiteTick.create({
-      data: {
-        responseTimeMs: responseTime,
-        status: "Down",
-        regionId: REGION_ID,
-        websiteId: websiteId,
-      },
-    });
+  await prisma.websiteTick.create({
+    data: {
+      responseTimeMs: responseTime,
+      status: tickStatus,
+      regionId: REGION_ID,
+      websiteId,
+    },
+  });
 
+  // Get current website status
+  const website = await prisma.website.findUnique({
+    where: { id: websiteId },
+    select: { status: true },
+  });
+
+  // Evaluate only when needed
+  if (
+    tickStatus === "Down" ||
+    (tickStatus === "Up" && website?.status === "Down")
+  ) {
     await evaluateWebsiteStatus(websiteId);
   }
 }
+
 
 async function main() {
   console.log(`[${WORKER_ID}] Waiting for jobs in region ${REGION_ID}...`);

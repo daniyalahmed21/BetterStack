@@ -5,6 +5,8 @@ To generate the types from Prisma schema, from the project root run:
 pnpm turbo db:generate
 
 
+pnpm prisma studio
+
 Import the database package in the web app
 The turborepo-prisma project should have an app called web at apps/web. Add the database dependency to apps/web/package.json:
 
