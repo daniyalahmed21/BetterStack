@@ -1,66 +1,47 @@
 import { prisma, WebsiteStatus } from "@repo/db";
 
-export async function evaluateWebsiteStatus(
-  websiteId: string,
-  previousStatus?: WebsiteStatus
-) {
+export async function evaluateMultiRegionStatus(websiteId: string) {
   const ticks = await prisma.websiteTick.findMany({
     where: { websiteId },
     orderBy: { createdAt: "desc" },
-    take: 3,
+    distinct: ["regionId"], // last tick per region
   });
 
-  if (ticks.length < 3) return;
+  if (!ticks.length) return;
 
-  const allDown = ticks.every(t => t.status === "Down");
+  const downRegions = ticks.filter(t => t.status === "Down").length;
+  const upRegions = ticks.filter(t => t.status === "Up").length;
 
-  const lastTwoUp =
-    ticks[0]?.status === "Up" &&
-    ticks[1]?.status === "Up";
+  let newStatus: WebsiteStatus = upRegions >= downRegions ? "Up" : "Down";
 
-  let newStatus: WebsiteStatus | null = null;
+  const website = await prisma.website.findUnique({ where: { id: websiteId } });
+  if (!website || website.status === newStatus) return;
 
-  if (allDown) newStatus = "Down";
-  else if (lastTwoUp) newStatus = "Up";
+  // 1 Update website
+  await prisma.website.update({
+    where: { id: websiteId },
+    data: { status: newStatus, lastCheckedAt: new Date() },
+  });
 
-  if (!newStatus) return;
-  if (!previousStatus || previousStatus === newStatus) return;
-
+  // 2 Incident windows
   if (newStatus === "Down") {
+    // Open incident if none exists
     const openIncident = await prisma.incident.findFirst({
       where: { websiteId, status: "Open" },
     });
-
     if (!openIncident) {
       await prisma.incident.create({
-        data: {
-          websiteId,
-          startedAt: new Date(),
-          status: "Open",
-        },
+        data: { websiteId, status: "Open", startedAt: new Date() },
       });
     }
-  }
-
-  if (newStatus === "Up") {
+  } else if (newStatus === "Up") {
+    // Close open incidents
     await prisma.incident.updateMany({
       where: { websiteId, status: "Open" },
-      data: {
-        status: "Closed",
-        endedAt: new Date(),
-      },
+      data: { status: "Closed", endedAt: new Date() },
     });
   }
 
-  await prisma.website.update({
-    where: { id: websiteId },
-    data: {
-      status: newStatus,
-      lastCheckedAt: new Date(),
-    },
-  });
-
-  console.log(
-    `[STATUS] ${websiteId}: ${previousStatus} → ${newStatus}`
-  );
+  // 3 Alert dedupe: only log if status changed
+  console.log(`[ALERT] ${websiteId} status: ${website.status} → ${newStatus}`);
 }
