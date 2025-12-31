@@ -127,6 +127,7 @@ model Incident {
   startedAt DateTime
   endedAt   DateTime?
   status    IncidentStatus
+  alerts    Alert[]
 
   website Website @relation(fields: [websiteId], references: [id])
 
@@ -136,4 +137,20 @@ model Incident {
 enum IncidentStatus {
   Open
   Closed
+}
+
+model Alert {
+  id         String    @id @default(cuid())
+  incidentId String
+  type       AlertType
+  sentAt     DateTime  @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@unique([incidentId, type]) 
+}
+
+enum AlertType {
+  IncidentStarted
+  IncidentResolved
 }
