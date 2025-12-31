@@ -1,4 +1,6 @@
-# Active Monitoring (Uptime Only)
+# Active Monitoring
+
+![Dashboard](dashboard.png)
 
 * **actively pings websites**
 * **does NOT rely on the user’s code**
