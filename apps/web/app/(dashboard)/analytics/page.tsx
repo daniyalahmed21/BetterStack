@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, TrendingUp, Clock, Zap, Globe, ChevronDown } from "lucide-react";
-import { getWebsites, getWebsiteAnalytics } from "@/lib/api/websites";
+import { getWebsites, getWebsiteAnalytics, Website } from "@/lib/api/websites";
 import { AnalyticsChart } from "@/components/analytics-chart";
 
 export default function AnalyticsPage() {

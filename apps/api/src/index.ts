@@ -17,12 +17,17 @@ const port = process.env.PORT || 3001;
 
 initSocket(server);
 
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+  next();
+});
+
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: true, // Reflect request origin
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
   })
 );
 
