@@ -22,9 +22,13 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions Session[]
-  accounts Account[]
-  websites Website[]
+  sessions           Session[]
+  accounts           Account[]
+  websites           Website[]
+  heartbeats         Heartbeat[]
+  statusPages        StatusPage[]
+  alertChannels      AlertChannel[]
+  escalationPolicies EscalationPolicy[]
 
   @@map("user")
 }
@@ -88,6 +92,7 @@ model Website {
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   ticks         WebsiteTick[]
   incidents     Incident[]
+  statusPages   StatusPage[]  @relation("WebsiteToStatusPage")
 
   @@unique([userId, url])
   @@index([userId])
@@ -154,4 +159,80 @@ model Alert {
 enum AlertType {
   IncidentStarted
   IncidentResolved
+}
+
+model Heartbeat {
+  id         String        @id @default(uuid())
+  name       String
+  userId     String
+  period     Int           @default(300) // in seconds
+  grace      Int           @default(60)  // in seconds
+  status     WebsiteStatus @default(Unknown)
+  lastPingAt DateTime?
+  createdAt  DateTime      @default(now())
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model StatusPage {
+  id        String           @id @default(uuid())
+  name      String
+  slug      String           @unique
+  userId    String
+  status    StatusPageStatus @default(Draft)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  websites  Website[]        @relation("WebsiteToStatusPage")
+
+  @@index([userId])
+}
+
+enum StatusPageStatus {
+  Draft
+  Published
+}
+
+model AlertChannel {
+  id        String           @id @default(uuid())
+  name      String
+  type      AlertChannelType
+  target    String
+  userId    String
+  active    Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps     EscalationStep[]
+
+  @@index([userId])
+}
+
+enum AlertChannelType {
+  Email
+  Slack
+  SMS
+  Voice
+}
+
+model EscalationPolicy {
+  id        String           @id @default(uuid())
+  name      String
+  userId    String
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps     EscalationStep[]
+
+  @@index([userId])
+}
+
+model EscalationStep {
+  id         String           @id @default(uuid())
+  policyId   String
+  channelId  String
+  delay      Int              @default(0) // in minutes
+  policy     EscalationPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  channel    AlertChannel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+  @@index([channelId])
 }
