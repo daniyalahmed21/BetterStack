@@ -89,10 +89,13 @@ model Website {
   createdAt     DateTime      @default(now())
   status        WebsiteStatus @default(Unknown)
   lastCheckedAt DateTime?
+  frequency     Int           @default(60) // in seconds
+  timeout       Int           @default(30) // in seconds
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   ticks         WebsiteTick[]
   incidents     Incident[]
   statusPages   StatusPage[]  @relation("WebsiteToStatusPage")
+  regions       Region[]      @relation("WebsiteToRegion")
 
   @@unique([userId, url])
   @@index([userId])
@@ -103,7 +106,8 @@ model Region {
   name      String   @unique
   createdAt DateTime @default(now())
 
-  ticks WebsiteTick[]
+  ticks    WebsiteTick[]
+  websites Website[]     @relation("WebsiteToRegion")
 }
 
 model WebsiteTick {

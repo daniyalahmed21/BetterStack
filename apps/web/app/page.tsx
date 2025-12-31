@@ -1,43 +1,254 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus, Search, Filter, ChevronDown, ChevronUp, Globe, Clock, Zap } from "lucide-react";
+import { getWebsites, createWebsite, getRegions } from "@/lib/api/websites";
 import { WebsiteCard } from "@/components/website-card";
-import { getWebsites } from "@/lib/api/websites";
-import DashboardLoading from "./loading";
+import { Skeleton } from "@/components/skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
+import { useSocket } from "@/lib/hooks/use-socket";
+import { EmptyState } from "@/components/empty-state";
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
+  const socket = useSocket();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [newWebsite, setNewWebsite] = useState({
+    name: "",
+    url: "",
+    frequency: 60,
+    timeout: 30,
+    regionIds: [] as string[]
+  });
+
   const { data: websites, isLoading, error } = useQuery({
     queryKey: ["websites"],
     queryFn: getWebsites,
-    refetchInterval: 30000,
   });
 
-  if (isLoading) return <DashboardLoading />;
-  if (error) return <div>Error loading monitors</div>;
+  const { data: regions } = useQuery({
+    queryKey: ["regions"],
+    queryFn: getRegions,
+  });
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("website.updated", (data) => {
+      console.log("Website updated via socket:", data);
+      queryClient.invalidateQueries({ queryKey: ["websites"] });
+    });
+
+    return () => {
+      socket.off("website.updated");
+    };
+  }, [socket, queryClient]);
+
+  const createMutation = useMutation({
+    mutationFn: createWebsite,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["websites"] });
+      setIsModalOpen(false);
+      setShowAdvanced(false);
+      setNewWebsite({
+        name: "",
+        url: "",
+        frequency: 60,
+        timeout: 30,
+        regionIds: []
+      });
+    },
+  });
+
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault();
+    createMutation.mutate(newWebsite);
+  };
+
+  if (error) {
+    return (
+      <div className="flex h-[400px] items-center justify-center rounded-lg border border-dashed">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Error loading websites</p>
+          <Button
+            variant="ghost"
+            className="mt-2"
+            onClick={() => window.location.reload()}
+          >
+            Try again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Monitors</h1>
-        <p className="text-sm text-muted-foreground">
-          Real-time status of your websites and services.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Monitors</h1>
+          <p className="text-sm text-muted-foreground">
+            Real-time status of your services and websites.
+          </p>
+        </div>
+        <Button className="gap-2" onClick={() => setIsModalOpen(true)}>
+          <Plus className="h-4 w-4" />
+          Create Monitor
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Search monitors..." className="pl-9" />
+        </div>
+        <Button variant="outline" size="icon">
+          <Filter className="h-4 w-4" />
+        </Button>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {websites?.map((website) => (
-          <WebsiteCard
-            key={website.id}
-            id={website.id}
-            name={website.name}
-            url={website.url}
-            status={website.status}
-            lastCheckedAt={website.lastCheckedAt}
-            responseTime={website.responseTime}
-            regions={website.regions}
-          />
-        ))}
+        {isLoading
+          ? Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-[200px] w-full rounded-xl" />
+          ))
+          : websites?.length === 0 ? (
+            <div className="col-span-full">
+              <EmptyState
+                icon={Plus}
+                title="No monitors yet"
+                description="Create your first monitor to start tracking the uptime and performance of your websites."
+                actionLabel="Create Monitor"
+                onAction={() => setIsModalOpen(true)}
+              />
+            </div>
+          ) : websites?.map((website) => (
+            <WebsiteCard
+              key={website.id}
+              id={website.id}
+              name={website.name || website.url}
+              url={website.url}
+              status={website.status}
+              lastChecked={website.lastCheckedAt}
+              frequency={website?.frequency}
+              timeout={website?.timeout}
+              regions={website?.regions}
+            />
+          ))}
       </div>
+
+      <Dialog
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Create New Monitor"
+      >
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Name (Optional)</label>
+            <Input
+              placeholder="My Website"
+              value={newWebsite.name}
+              onChange={(e) => setNewWebsite({ ...newWebsite, name: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">URL</label>
+            <Input
+              placeholder="https://example.com"
+              required
+              type="url"
+              value={newWebsite.url}
+              onChange={(e) => setNewWebsite({ ...newWebsite, url: e.target.value })}
+            />
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {showAdvanced ? "Hide Advanced Settings" : "Show Advanced Settings"}
+            </button>
+          </div>
+
+          {showAdvanced && (
+            <div className="space-y-4 border-t pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    Frequency (sec)
+                  </label>
+                  <Input
+                    type="number"
+                    min={30}
+                    max={3600}
+                    value={newWebsite.frequency}
+                    onChange={(e) => setNewWebsite({ ...newWebsite, frequency: parseInt(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+                    Timeout (sec)
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={newWebsite.timeout}
+                    onChange={(e) => setNewWebsite({ ...newWebsite, timeout: parseInt(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                  Check from Regions
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {regions?.map((region: any) => (
+                    <label key={region.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-secondary/50 p-1.5 rounded transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={newWebsite.regionIds.includes(region.id)}
+                        onChange={(e) => {
+                          const ids = e.target.checked
+                            ? [...newWebsite.regionIds, region.id]
+                            : newWebsite.regionIds.filter(id => id !== region.id);
+                          setNewWebsite({ ...newWebsite, regionIds: ids });
+                        }}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      {region.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Creating..." : "Create Monitor"}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }

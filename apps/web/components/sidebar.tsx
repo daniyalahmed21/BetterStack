@@ -9,9 +9,11 @@ import {
     ShieldCheck,
     Activity,
     BarChart3,
-    Bell
+    Bell,
+    User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/lib/auth-client";
 
 const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -25,6 +27,7 @@ const navigation = [
 
 export function Sidebar() {
     const pathname = usePathname();
+    const { data: session } = useSession();
 
     return (
         <div className="flex h-full w-64 flex-col border-r bg-card text-card-foreground">
@@ -63,9 +66,13 @@ export function Sidebar() {
             </nav>
             <div className="border-t p-4">
                 <div className="flex items-center gap-3 px-2">
-                    <div className="h-8 w-8 rounded-full bg-secondary" />
-                    <div className="flex flex-col">
-                        <span className="text-xs font-medium">Daniyal Ahmed</span>
+                    <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex flex-col overflow-hidden">
+                        <span className="text-xs font-medium truncate">
+                            {session?.user?.name || "Guest User"}
+                        </span>
                         <span className="text-[10px] text-muted-foreground">Pro Plan</span>
                     </div>
                 </div>

@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { IncidentTable } from "@/components/incident-table";
 import { getIncidents } from "@/lib/api/incidents";
 import { Skeleton } from "@/components/skeleton";
+import { EmptyState } from "@/components/empty-state";
+import { AlertCircle } from "lucide-react";
 
 export default function IncidentsPage() {
     const { data: incidents, isLoading, error } = useQuery({
@@ -35,7 +37,15 @@ export default function IncidentsPage() {
                 </p>
             </div>
 
-            <IncidentTable incidents={incidents || []} />
+            {incidents?.length === 0 ? (
+                <EmptyState
+                    icon={AlertCircle}
+                    title="No incidents recorded"
+                    description="All systems are operational. Historical incidents will appear here."
+                />
+            ) : (
+                <IncidentTable incidents={incidents || []} />
+            )}
         </div>
     );
 }
