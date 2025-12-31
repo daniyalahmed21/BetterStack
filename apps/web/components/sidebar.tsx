@@ -30,7 +30,8 @@ export function Sidebar() {
         <div className="flex h-full w-64 flex-col border-r bg-card text-card-foreground">
             <div className="flex h-16 items-center border-b px-6">
                 <Link href="/" className="flex items-center gap-2 font-bold tracking-tight">
-                    <div className="h-6 w-6 rounded bg-foreground" />
+                    {/* <div className="h-6 w-6 rounded bg-foreground" /> */}
+                    <img src="logo.png" alt="logo" width={24} height={24} />
                     <span>BetterStack</span>
                 </Link>
             </div>

@@ -2,11 +2,14 @@ import { StatusBadge } from "./status-badge";
 
 interface Incident {
     id: string;
-    website: string;
-    status: "UP" | "DOWN";
-    startTime: string;
-    endTime: string;
-    duration: string;
+    websiteId: string;
+    status: "Open" | "Closed";
+    startedAt: string;
+    endedAt: string | null;
+    website: {
+        name: string | null;
+        url: string;
+    };
 }
 
 interface IncidentTableProps {
@@ -15,39 +18,49 @@ interface IncidentTableProps {
 
 export function IncidentTable({ incidents }: IncidentTableProps) {
     return (
-        <div className="overflow-hidden rounded-lg border bg-card">
-            <table className="w-full text-left text-sm">
-                <thead className="border-b bg-secondary/50 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    <tr>
-                        <th className="px-6 py-3">Website</th>
-                        <th className="px-6 py-3">Status</th>
-                        <th className="px-6 py-3">Start Time</th>
-                        <th className="px-6 py-3">End Time</th>
-                        <th className="px-6 py-3 text-right">Duration</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y">
-                    {incidents.map((incident) => (
-                        <tr key={incident.id} className="transition-colors hover:bg-secondary/30">
-                            <td className="whitespace-nowrap px-6 py-4 font-medium text-foreground">
-                                {incident.website}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4">
-                                <StatusBadge status={incident.status} />
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-muted-foreground">
-                                {incident.startTime}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-muted-foreground">
-                                {incident.endTime}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-right font-mono text-xs">
-                                {incident.duration}
-                            </td>
+        <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                    <thead>
+                        <tr className="border-b bg-muted/50 transition-colors">
+                            <th className="h-10 px-4 font-medium text-muted-foreground">Website</th>
+                            <th className="h-10 px-4 font-medium text-muted-foreground">Status</th>
+                            <th className="h-10 px-4 font-medium text-muted-foreground">Start Time</th>
+                            <th className="h-10 px-4 font-medium text-muted-foreground">End Time</th>
+                            <th className="h-10 px-4 font-medium text-muted-foreground">Duration</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody className="divide-y">
+                        {incidents.map((incident) => {
+                            const duration = incident.endedAt
+                                ? `${Math.floor(
+                                    (new Date(incident.endedAt).getTime() -
+                                        new Date(incident.startedAt).getTime()) /
+                                    60000
+                                )}m`
+                                : "Ongoing";
+
+                            return (
+                                <tr key={incident.id} className="transition-colors hover:bg-muted/50">
+                                    <td className="p-4 font-medium">
+                                        {incident.website.name || incident.website.url}
+                                    </td>
+                                    <td className="p-4">
+                                        <StatusBadge status={incident.status === "Open" ? "DOWN" : "UP"} />
+                                    </td>
+                                    <td className="p-4 text-muted-foreground">
+                                        {new Date(incident.startedAt).toLocaleString()}
+                                    </td>
+                                    <td className="p-4 text-muted-foreground">
+                                        {incident.endedAt ? new Date(incident.endedAt).toLocaleString() : "Ongoing"}
+                                    </td>
+                                    <td className="p-4 font-mono text-xs">{duration}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }

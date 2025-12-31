@@ -34,8 +34,8 @@ async function main() {
   console.log("Seeding websites...");
 
  const websites = [
-  { url: "https://example.com", userEmail: "alice@example.com" },
-  { url: "https://test.com", userEmail: "bob@example.com" },
+  { url: "https://example.com", userEmail: "alice@example.com", name: "Example" },
+  { url: "https://test.com", userEmail: "bob@example.com", name: "Test" },
 ];
 
 for (const w of websites) {

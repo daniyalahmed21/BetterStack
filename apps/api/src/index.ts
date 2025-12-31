@@ -3,6 +3,7 @@ import cors from "cors";
 import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
 import { auth } from "@repo/auth";
 import websiteRoutes from "./routes/website";
+import incidentRoutes from "./routes/incident";
 import { startScheduler } from "./scheduler";
 
 const app = express();
@@ -22,6 +23,7 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 app.use(express.json());
 
 app.use("/websites", websiteRoutes);
+app.use("/incidents", incidentRoutes);
 
 startScheduler();
 

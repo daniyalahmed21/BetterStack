@@ -9,7 +9,7 @@ const router = Router();
  * POST /websites
  */
 router.post("/", requireAuth, async (req, res) => {
-  const { url } = req.body;
+  const { url, name } = req.body;
   const userId = req.userId;
 
   if (!url) {
@@ -24,6 +24,7 @@ router.post("/", requireAuth, async (req, res) => {
     const website = await prisma.website.create({
       data: {
         url,
+        name,
         userId,
       },
     });
@@ -78,6 +79,28 @@ router.get("/:id", requireAuth, async (req, res) => {
   }
 
   res.json(website);
+});
+
+/**
+ * GET WEBSITE TICKS
+ * GET /websites/:id/ticks
+ */
+router.get("/:id/ticks", requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.userId;
+
+  const ticks = await prisma.websiteTick.findMany({
+    where: {
+      websiteId: id,
+      website: {
+        userId,
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+
+  res.json(ticks);
 });
 
 /**

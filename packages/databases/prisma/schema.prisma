@@ -80,6 +80,7 @@ model Verification {
 model Website {
   id            String        @id @default(uuid())
   url           String
+  name          String?
   userId        String
   createdAt     DateTime      @default(now())
   status        WebsiteStatus @default(Unknown)
