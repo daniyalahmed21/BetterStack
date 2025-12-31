@@ -1,4 +1,5 @@
 import { prisma, WebsiteStatus } from "@repo/db";
+import { sendAlertOnce } from "./sendAlertOnce";
 
 export async function evaluateMultiRegionStatus(websiteId: string) {
   const ticks = await prisma.websiteTick.findMany({
@@ -9,8 +10,8 @@ export async function evaluateMultiRegionStatus(websiteId: string) {
 
   if (!ticks.length) return;
 
-  const downRegions = ticks.filter(t => t.status === "Down").length;
-  const upRegions = ticks.filter(t => t.status === "Up").length;
+  const downRegions = ticks.filter((t) => t.status === "Down").length;
+  const upRegions = ticks.filter((t) => t.status === "Up").length;
 
   let newStatus: WebsiteStatus = upRegions >= downRegions ? "Up" : "Down";
 
@@ -23,23 +24,45 @@ export async function evaluateMultiRegionStatus(websiteId: string) {
     data: { status: newStatus, lastCheckedAt: new Date() },
   });
 
-  // 2 Incident windows
   if (newStatus === "Down") {
-    // Open incident if none exists
     const openIncident = await prisma.incident.findFirst({
       where: { websiteId, status: "Open" },
     });
+
     if (!openIncident) {
-      await prisma.incident.create({
-        data: { websiteId, status: "Open", startedAt: new Date() },
+      const incident = await prisma.incident.create({
+        data: {
+          websiteId,
+          startedAt: new Date(),
+          status: "Open",
+        },
+      });
+
+      await sendAlertOnce(incident.id, "IncidentStarted", async () => {
+        console.log(`[ALERT] Website DOWN: ${websiteId}`);
+        // Slack / Email / Webhook here
       });
     }
-  } else if (newStatus === "Up") {
-    // Close open incidents
-    await prisma.incident.updateMany({
+  }
+  if (newStatus === "Up") {
+    const openIncidents = await prisma.incident.findMany({
       where: { websiteId, status: "Open" },
-      data: { status: "Closed", endedAt: new Date() },
     });
+
+    for (const incident of openIncidents) {
+      await prisma.incident.update({
+        where: { id: incident.id },
+        data: {
+          status: "Closed",
+          endedAt: new Date(),
+        },
+      });
+
+      await sendAlertOnce(incident.id, "IncidentResolved", async () => {
+        console.log(`[ALERT] Website UP: ${websiteId}`);
+        // Slack / Email / Webhook here
+      });
+    }
   }
 
   // 3 Alert dedupe: only log if status changed
