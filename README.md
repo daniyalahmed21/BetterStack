@@ -1,6 +1,7 @@
 # Active Monitoring
 
 ![Dashboard](dashboard.png)
+![Alerting](alerting.png)
 
 * **actively pings websites**
 * **does NOT rely on the user’s code**
