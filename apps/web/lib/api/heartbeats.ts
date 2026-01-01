@@ -3,9 +3,9 @@ const API_BASE_URL = "http://localhost:3001";
 export interface Heartbeat {
   id: string;
   name: string;
+  status: "Up" | "Down" | "Pending";
   period: number;
   grace: number;
-  status: "Up" | "Down" | "Unknown";
   lastPingAt: string | null;
   createdAt: string;
 }
@@ -20,7 +20,11 @@ export async function getHeartbeats(): Promise<Heartbeat[]> {
   return response.json();
 }
 
-export async function createHeartbeat(data: Partial<Heartbeat>): Promise<Heartbeat> {
+export async function createHeartbeat(data: {
+  name: string;
+  period?: number;
+  grace?: number;
+}): Promise<Heartbeat> {
   const response = await fetch(`${API_BASE_URL}/heartbeats`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

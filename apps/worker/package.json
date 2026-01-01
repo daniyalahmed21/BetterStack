@@ -15,7 +15,10 @@
   },
   "dependencies": {
     "@repo/db": "workspace:*",
+    "@repo/mail": "workspace:^",
+    "@types/nodemailer": "^7.0.4",
     "axios": "^1.13.2",
+    "nodemailer": "^7.0.12",
     "redis": "^5.10.0"
   }
 }

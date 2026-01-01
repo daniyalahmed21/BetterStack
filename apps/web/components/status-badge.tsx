@@ -1,14 +1,14 @@
 import { cn } from "@/lib/utils";
 
-type Status = "UP" | "DOWN" | "UNKNOWN";
+type Status = "UP" | "DOWN" | "UNKNOWN" | "PENDING";
 
 interface StatusBadgeProps {
-    status: Status;
+    status: Status | string;
     className?: string;
 }
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
-    const statusConfig = {
+    const statusConfig: Record<string, { label: string; dotClass: string; bgClass: string }> = {
         UP: {
             label: "UP",
             dotClass: "bg-up",
@@ -19,6 +19,11 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
             dotClass: "bg-down",
             bgClass: "bg-down/10 text-down border-down/20",
         },
+        PENDING: {
+            label: "PENDING",
+            dotClass: "bg-yellow-500",
+            bgClass: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
+        },
         UNKNOWN: {
             label: "UNKNOWN",
             dotClass: "bg-unknown",
@@ -26,7 +31,9 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
         },
     };
 
-    const config = statusConfig[status];
+    const config = statusConfig[status.toUpperCase()] || statusConfig.UNKNOWN;
+
+    if (!config) return null;
 
     return (
         <div

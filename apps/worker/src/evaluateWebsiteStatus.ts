@@ -1,5 +1,6 @@
 import { prisma, WebsiteStatus } from "@repo/db";
 import { sendAlertOnce } from "./sendAlertOnce";
+import { sendEmail, getAlertHtml } from "./services/email";
 
 export async function evaluateMultiRegionStatus(websiteId: string) {
   const ticks = await prisma.websiteTick.findMany({
@@ -40,7 +41,27 @@ export async function evaluateMultiRegionStatus(websiteId: string) {
 
       await sendAlertOnce(incident.id, "IncidentStarted", async () => {
         console.log(`[ALERT] Website DOWN: ${websiteId}`);
-        // Slack / Email / Webhook here
+        
+        // Fetch User and Alert Channels
+        const websiteWithOwner = await prisma.website.findUnique({
+          where: { id: websiteId },
+          include: { user: { include: { alertChannels: { where: { type: "Email", active: true } } } } }
+        });
+
+        if (websiteWithOwner?.user.alertChannels) {
+          for (const channel of websiteWithOwner.user.alertChannels) {
+            await sendEmail(
+              channel.target,
+              `Incident Started: ${websiteWithOwner.name || websiteWithOwner.url}`,
+              `Your website ${websiteWithOwner.url} is DOWN.\n\nIncident started at: ${new Date().toLocaleString()}`,
+              getAlertHtml(
+                "Incident Started",
+                `Your website is DOWN. Incident started at: ${new Date().toLocaleString()}`,
+                websiteWithOwner.url
+              )
+            );
+          }
+        }
       });
     }
   }
@@ -60,7 +81,26 @@ export async function evaluateMultiRegionStatus(websiteId: string) {
 
       await sendAlertOnce(incident.id, "IncidentResolved", async () => {
         console.log(`[ALERT] Website UP: ${websiteId}`);
-        // Slack / Email / Webhook here
+        
+        const websiteWithOwner = await prisma.website.findUnique({
+          where: { id: websiteId },
+          include: { user: { include: { alertChannels: { where: { type: "Email", active: true } } } } }
+        });
+
+        if (websiteWithOwner?.user.alertChannels) {
+          for (const channel of websiteWithOwner.user.alertChannels) {
+            await sendEmail(
+              channel.target,
+              `Incident Resolved: ${websiteWithOwner.name || websiteWithOwner.url}`,
+              `Your website ${websiteWithOwner.url} is back UP.\n\nIncident resolved at: ${new Date().toLocaleString()}`,
+              getAlertHtml(
+                "Incident Resolved",
+                `Your website is back UP. Incident resolved at: ${new Date().toLocaleString()}`,
+                websiteWithOwner.url
+              )
+            );
+          }
+        }
       });
     }
   }
