@@ -10,11 +10,15 @@ import { getHeartbeats, createHeartbeat, deleteHeartbeat } from "@/lib/api/heart
 import { Skeleton } from "@/components/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { Dialog } from "@/components/ui/dialog";
+import { SearchInput } from "@/components/search-input";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 
 export default function HeartbeatsPage() {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const debouncedSearch = useDebounce(searchQuery, 300);
     const [newHeartbeat, setNewHeartbeat] = useState({
         name: "",
         period: 300,
@@ -70,10 +74,12 @@ export default function HeartbeatsPage() {
             </div>
 
             <div className="flex items-center gap-4">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input placeholder="Search heartbeats..." className="pl-9" />
-                </div>
+                <SearchInput
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Search heartbeats..."
+                    className="flex-1 max-w-sm"
+                />
             </div>
 
             {isLoading ? (
@@ -82,14 +88,26 @@ export default function HeartbeatsPage() {
                         <Skeleton key={i} className="h-16 w-full rounded-lg" />
                     ))}
                 </div>
-            ) : heartbeats?.length === 0 ? (
-                <EmptyState
-                    icon={Activity}
-                    title="No heartbeats yet"
-                    description="Create a heartbeat to monitor your cron jobs, background tasks, or any periodic process."
-                    actionLabel="Create Heartbeat"
-                    onAction={() => setIsModalOpen(true)}
-                />
+            ) : heartbeats?.filter((hb) => {
+                if (!debouncedSearch) return true;
+                const search = debouncedSearch.toLowerCase();
+                return hb.name.toLowerCase().includes(search);
+            }).length === 0 ? (
+                <div className="col-span-full">
+                    {debouncedSearch ? (
+                        <div className="text-center py-12">
+                            <p className="text-sm text-muted-foreground">No heartbeats found matching "{debouncedSearch}"</p>
+                        </div>
+                    ) : (
+                        <EmptyState
+                            icon={Activity}
+                            title="No heartbeats yet"
+                            description="Create a heartbeat to monitor your cron jobs, background tasks, or any periodic process."
+                            actionLabel="Create Heartbeat"
+                            onAction={() => setIsModalOpen(true)}
+                        />
+                    )}
+                </div>
             ) : (
                 <div className="rounded-lg border bg-card overflow-hidden">
                     <div className="overflow-x-auto">
@@ -105,7 +123,11 @@ export default function HeartbeatsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
-                                {heartbeats?.map((hb) => (
+                                {heartbeats?.filter((hb) => {
+                                    if (!debouncedSearch) return true;
+                                    const search = debouncedSearch.toLowerCase();
+                                    return hb.name.toLowerCase().includes(search);
+                                }).map((hb) => (
                                     <tr key={hb.id} className="transition-colors hover:bg-muted/50">
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">

@@ -1,35 +1,67 @@
 "use client";
 
-import { useState } from "react";
-import { Settings, User, Shield, Bell, CreditCard, Globe, LogOut, Mail, Plus, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getUser, updateUser } from "@/lib/api/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useSession, signOut } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
-
-type Tab = "General" | "Profile" | "Security" | "Notifications" | "Billing" | "Team";
+import { Skeleton } from "@/components/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { User, Building, Save } from "lucide-react";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
-    const { data: session } = useSession();
-    const router = useRouter();
-    const [activeTab, setActiveTab] = useState<Tab>("General");
+    const queryClient = useQueryClient();
+    const [activeTab, setActiveTab] = useState("general");
 
-    const handleSignOut = async () => {
-        await signOut();
-        router.push("/login");
+    const { data: user, isLoading } = useQuery({
+        queryKey: ["user"],
+        queryFn: getUser,
+    });
+
+    const [formData, setFormData] = useState({
+        name: "",
+        email: "",
+        timezone: "UTC", // Dummy timezone for now
+    });
+
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                name: user.name,
+                email: user.email,
+                timezone: "UTC",
+            });
+        }
+    }, [user]);
+
+    const updateMutation = useMutation({
+        mutationFn: updateUser,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["user"] });
+            toast.success("Settings updated successfully");
+        },
+        onError: () => {
+            toast.error("Failed to update settings");
+        },
+    });
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        updateMutation.mutate({ name: formData.name });
     };
 
-    const tabs = [
-        { name: "General", icon: Settings },
-        { name: "Profile", icon: User },
-        { name: "Security", icon: Shield },
-        { name: "Notifications", icon: Bell },
-        { name: "Billing", icon: CreditCard },
-        { name: "Team", icon: Globe },
-    ];
+    if (isLoading) {
+        return (
+            <div className="space-y-6">
+                <Skeleton className="h-10 w-48" />
+                <Skeleton className="h-[400px] w-full" />
+            </div>
+        );
+    }
 
     return (
-        <div className="max-w-4xl space-y-8">
+        <div className="space-y-8">
             <div>
                 <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
                 <p className="text-sm text-muted-foreground">
@@ -37,159 +69,103 @@ export default function SettingsPage() {
                 </p>
             </div>
 
-            <div className="grid gap-8 lg:grid-cols-[200px_1fr]">
-                <aside className="flex flex-col gap-1">
-                    {tabs.map((item) => (
-                        <button
-                            key={item.name}
-                            onClick={() => setActiveTab(item.name as Tab)}
-                            className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${activeTab === item.name
-                                ? "bg-secondary text-foreground"
-                                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                                }`}
-                        >
-                            <item.icon className="h-4 w-4" />
-                            {item.name}
-                        </button>
-                    ))}
-                </aside>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <TabsList>
+                    <TabsTrigger value="general" className="gap-2">
+                        <Building className="h-4 w-4" />
+                        General
+                    </TabsTrigger>
+                    <TabsTrigger value="profile" className="gap-2">
+                        <User className="h-4 w-4" />
+                        Profile
+                    </TabsTrigger>
+                </TabsList>
 
-                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                    {activeTab === "General" && (
-                        <div className="space-y-8">
-                            <section className="space-y-4">
-                                <h3 className="text-sm font-semibold border-b pb-2">Organization Profile</h3>
-                                <div className="grid gap-4 max-w-md">
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                            Organization Name
-                                        </label>
-                                        <Input defaultValue="BetterStack Team" />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                            Organization URL
-                                        </label>
-                                        <div className="flex gap-2">
-                                            <div className="flex items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
-                                                betterstack.com/
-                                            </div>
-                                            <Input defaultValue="betterstack-team" />
-                                        </div>
-                                    </div>
+                <TabsContent value="general" className="space-y-4">
+                    <div className="rounded-lg border bg-card p-6">
+                        <h3 className="text-lg font-medium mb-4">Organization Settings</h3>
+                        <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Organization Name</label>
+                                <Input
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    placeholder="My Organization"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    This is the name that will be displayed on your status pages and emails.
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Timezone</label>
+                                <select
+                                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={formData.timezone}
+                                    onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+                                >
+                                    <option value="UTC">UTC (Coordinated Universal Time)</option>
+                                    <option value="EST">EST (Eastern Standard Time)</option>
+                                    <option value="PST">PST (Pacific Standard Time)</option>
+                                    <option value="CET">CET (Central European Time)</option>
+                                </select>
+                            </div>
+
+                            <div className="pt-4">
+                                <Button type="submit" disabled={updateMutation.isPending} className="gap-2">
+                                    <Save className="h-4 w-4" />
+                                    {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="profile" className="space-y-4">
+                    <div className="rounded-lg border bg-card p-6">
+                        <h3 className="text-lg font-medium mb-4">Personal Profile</h3>
+                        <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center text-2xl font-bold text-muted-foreground">
+                                    {formData.name.charAt(0).toUpperCase()}
                                 </div>
-                            </section>
-
-                            <section className="space-y-4">
-                                <h3 className="text-sm font-semibold border-b pb-2">Danger Zone</h3>
-                                <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <h4 className="text-sm font-medium text-foreground">Delete Organization</h4>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                Permanently delete your organization and all associated data.
-                                            </p>
-                                        </div>
-                                        <Button variant="outline" className="border-red-500/50 text-red-500 hover:bg-red-500 hover:text-white">
-                                            Delete
-                                        </Button>
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
-                    )}
-
-                    {activeTab === "Profile" && (
-                        <div className="space-y-8">
-                            <section className="space-y-4">
-                                <h3 className="text-sm font-semibold border-b pb-2">Personal Information</h3>
-                                <div className="grid gap-4 max-w-md">
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                            Full Name
-                                        </label>
-                                        <Input defaultValue={session?.user?.name || ""} />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                            Email Address
-                                        </label>
-                                        <Input defaultValue={session?.user?.email || ""} disabled />
-                                        <p className="text-[10px] text-muted-foreground">Email cannot be changed.</p>
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
-                    )}
-
-                    {activeTab === "Team" && (
-                        <div className="space-y-8">
-                            <section className="space-y-4">
-                                <div className="flex items-center justify-between border-b pb-2">
-                                    <h3 className="text-sm font-semibold">Team Members</h3>
-                                    <Button size="sm" className="h-8 gap-1">
-                                        <Plus className="h-3.5 w-3.5" />
-                                        Invite Member
+                                <div>
+                                    <Button variant="outline" size="sm" type="button">
+                                        Change Avatar
                                     </Button>
                                 </div>
-                                <div className="space-y-3">
-                                    {[
-                                        { name: session?.user?.name || "You", email: session?.user?.email || "", role: "Owner", status: "Active" },
-                                        { name: "John Doe", email: "john@example.com", role: "Admin", status: "Active" },
-                                        { name: "Jane Smith", email: "jane@example.com", role: "Member", status: "Pending" },
-                                    ].map((member) => (
-                                        <div key={member.email} className="flex items-center justify-between rounded-lg border p-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-xs font-medium">
-                                                    {member.name.charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-medium">{member.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{member.email}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-xs font-medium text-muted-foreground">{member.role}</span>
-                                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${member.status === "Active" ? "bg-up/10 text-up" : "bg-muted text-muted-foreground"
-                                                    }`}>
-                                                    {member.status}
-                                                </span>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                        </div>
-                    )}
+                            </div>
 
-                    {(activeTab === "Security" || activeTab === "Notifications" || activeTab === "Billing") && (
-                        <div className="flex flex-col items-center justify-center h-[300px] rounded-lg border border-dashed text-center">
-                            <p className="text-sm text-muted-foreground">
-                                {activeTab} settings are coming soon.
-                            </p>
-                        </div>
-                    )}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Full Name</label>
+                                <Input
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                />
+                            </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t">
-                        <Button variant="outline">Cancel</Button>
-                        <Button>Save Changes</Button>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Email Address</label>
+                                <Input
+                                    value={formData.email}
+                                    disabled
+                                    className="bg-muted"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Email address cannot be changed. Contact support for assistance.
+                                </p>
+                            </div>
+
+                            <div className="pt-4">
+                                <Button type="submit" disabled={updateMutation.isPending} className="gap-2">
+                                    <Save className="h-4 w-4" />
+                                    {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                                </Button>
+                            </div>
+                        </form>
                     </div>
-
-                    <div className="pt-8 border-t">
-                        <Button
-                            variant="ghost"
-                            className="text-red-500 hover:text-red-600 hover:bg-red-500/10 gap-2"
-                            onClick={handleSignOut}
-                        >
-                            <LogOut className="h-4 w-4" />
-                            Sign Out
-                        </Button>
-                    </div>
-                </div>
-            </div>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

@@ -20,6 +20,8 @@ import { Input } from "@/components/ui/input";
 import { getAlertChannels, createAlertChannel, deleteAlertChannel, AlertChannel } from "@/lib/api/alert-channels";
 import { Skeleton } from "@/components/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import { SearchInput } from "@/components/search-input";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 
 const typeIcons = {
     Email: Mail,
@@ -31,6 +33,8 @@ const typeIcons = {
 export default function AlertingPage() {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const debouncedSearch = useDebounce(searchQuery, 300);
     const [newChannel, setNewChannel] = useState({
         name: "",
         type: "Email" as AlertChannel["type"],
@@ -78,6 +82,15 @@ export default function AlertingPage() {
                 </Button>
             </div>
 
+            <div className="flex items-center gap-4">
+                <SearchInput
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Search alert channels..."
+                    className="flex-1 max-w-sm"
+                />
+            </div>
+
             <div className="grid gap-6">
                 {isLoading ? (
                     Array.from({ length: 3 }).map((_, i) => (
@@ -88,16 +101,38 @@ export default function AlertingPage() {
                         <AlertCircle className="h-8 w-8 text-muted-foreground mb-2" />
                         <p className="text-sm text-muted-foreground">Failed to load alert channels</p>
                     </div>
-                ) : channels?.length === 0 ? (
-                    <EmptyState
-                        icon={Bell}
-                        title="No alert channels"
-                        description="Add your first alert channel to start receiving notifications about incidents."
-                        actionLabel="Add Channel"
-                        onAction={() => setIsModalOpen(true)}
-                    />
+                ) : channels?.filter((channel) => {
+                    if (!debouncedSearch) return true;
+                    const search = debouncedSearch.toLowerCase();
+                    return (
+                        channel.name.toLowerCase().includes(search) ||
+                        channel.type.toLowerCase().includes(search)
+                    );
+                }).length === 0 ? (
+                    <div className="col-span-full">
+                        {debouncedSearch ? (
+                            <div className="text-center py-12">
+                                <p className="text-sm text-muted-foreground">No alert channels found matching "{debouncedSearch}"</p>
+                            </div>
+                        ) : (
+                            <EmptyState
+                                icon={Bell}
+                                title="No alert channels"
+                                description="Add your first alert channel to start receiving notifications about incidents."
+                                actionLabel="Add Channel"
+                                onAction={() => setIsModalOpen(true)}
+                            />
+                        )}
+                    </div>
                 ) : (
-                    channels?.map((channel) => {
+                    channels?.filter((channel) => {
+                        if (!debouncedSearch) return true;
+                        const search = debouncedSearch.toLowerCase();
+                        return (
+                            channel.name.toLowerCase().includes(search) ||
+                            channel.type.toLowerCase().includes(search)
+                        );
+                    }).map((channel) => {
                         const Icon = typeIcons[channel.type];
                         return (
                             <div

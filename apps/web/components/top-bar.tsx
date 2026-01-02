@@ -1,9 +1,10 @@
 "use client";
 
-import { Search, Plus, Bell, LogOut, User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
+import { NotificationsPopover } from "./notifications-popover";
 
 export function TopBar() {
     const { data: session } = useSession();
@@ -17,20 +18,10 @@ export function TopBar() {
     return (
         <header className="flex h-16 items-center justify-between border-b bg-card px-8">
             <div className="flex items-center gap-4">
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <input
-                        type="search"
-                        placeholder="Search monitors..."
-                        className="h-9 w-64 rounded-md border bg-background pl-9 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                </div>
+                <h2 className="text-lg font-semibold">BetterStack</h2>
             </div>
             <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" className="relative">
-                    <Bell className="h-4 w-4" />
-                    <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 border-2 border-card" />
-                </Button>
+                <NotificationsPopover />
 
                 {session?.user ? (
                     <div className="flex items-center gap-3 pl-4 border-l">

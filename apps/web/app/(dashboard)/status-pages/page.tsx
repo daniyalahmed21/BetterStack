@@ -2,25 +2,34 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ShieldCheck, Plus, Search, ExternalLink, Trash2, Globe } from "lucide-react";
+import { ShieldCheck, Plus, Trash2, ExternalLink, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getStatusPages, createStatusPage, deleteStatusPage } from "@/lib/api/status-pages";
-import { getWebsites } from "@/lib/api/websites";
 import { Skeleton } from "@/components/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { Dialog } from "@/components/ui/dialog";
+import { SearchInput } from "@/components/search-input";
+import { useDebounce } from "@/lib/hooks/use-debounce";
+import {
+    getStatusPages,
+    createStatusPage,
+    deleteStatusPage,
+    updateStatusPage,
+} from "@/lib/api/status-pages";
+import { getWebsites } from "@/lib/api/websites";
 
 export default function StatusPagesPage() {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const debouncedSearch = useDebounce(searchQuery, 300);
     const [newStatusPage, setNewStatusPage] = useState({
         name: "",
         slug: "",
         websiteIds: [] as string[],
     });
 
-    const { data: statusPages, isLoading } = useQuery({
+    const { data: statusPages = [], isLoading } = useQuery({
         queryKey: ["status-pages"],
         queryFn: getStatusPages,
     });
@@ -46,22 +55,25 @@ export default function StatusPagesPage() {
         },
     });
 
-    const handleCreate = (e: React.FormEvent) => {
-        e.preventDefault();
-        createMutation.mutate(newStatusPage);
-    };
+    const updateMutation = useMutation({
+        mutationFn: ({ id, ...data }: any) => updateStatusPage(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["status-pages"] });
+        },
+    });
 
     const toggleWebsite = (id: string) => {
         setNewStatusPage((prev) => ({
             ...prev,
             websiteIds: prev.websiteIds.includes(id)
-                ? prev.websiteIds.filter((wid) => wid !== id)
+                ? prev.websiteIds.filter((w) => w !== id)
                 : [...prev.websiteIds, id],
         }));
     };
 
     return (
         <div className="space-y-8">
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Status Pages</h1>
@@ -75,139 +87,205 @@ export default function StatusPagesPage() {
                 </Button>
             </div>
 
-            <div className="flex items-center gap-4">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input placeholder="Search status pages..." className="pl-9" />
-                </div>
-            </div>
+            {/* Search */}
+            <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search status pages..."
+                className="max-w-sm"
+            />
 
+            {/* Content */}
             {isLoading ? (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="space-y-4">
                     {Array.from({ length: 3 }).map((_, i) => (
-                        <Skeleton key={i} className="h-[200px] w-full rounded-xl" />
+                        <Skeleton key={i} className="h-16 w-full rounded-lg" />
                     ))}
                 </div>
-            ) : statusPages?.length === 0 ? (
-                <EmptyState
-                    icon={ShieldCheck}
-                    title="No status pages yet"
-                    description="Create a status page to share the uptime and performance of your services with your users."
-                    actionLabel="Create Status Page"
-                    onAction={() => setIsModalOpen(true)}
-                />
-            ) : (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {statusPages?.map((page) => (
-                        <div
-                            key={page.id}
-                            className="group relative rounded-lg border bg-card p-5 transition-all hover:border-foreground/20 hover:shadow-sm"
-                        >
-                            <div className="flex items-start justify-between">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-sm font-semibold text-foreground">{page.name}</h3>
-                                        <a
-                                            href={`http://localhost:3000/status/${page.slug}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-muted-foreground transition-colors hover:text-foreground"
-                                        >
-                                            <ExternalLink className="h-3 w-3" />
-                                        </a>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">/{page.slug}</p>
-                                </div>
-                                <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${page.status === "Published" ? "bg-up/10 text-up" : "bg-muted text-muted-foreground"
-                                    }`}>
-                                    {page.status}
-                                </div>
-                            </div>
-
-                            <div className="mt-6 flex items-center justify-between">
-                                <div className="flex gap-4">
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                                            Monitors
-                                        </p>
-                                        <p className="text-xs font-medium">{page.websites?.length || 0}</p>
-                                    </div>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                                    onClick={() => deleteMutation.mutate(page.id)}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </div>
+            ) : statusPages?.filter((page) => {
+                if (!debouncedSearch) return true;
+                const search = debouncedSearch.toLowerCase();
+                return (
+                    page.name.toLowerCase().includes(search) ||
+                    page.slug.toLowerCase().includes(search)
+                );
+            }).length === 0 ? (
+                <div className="col-span-full">
+                    {debouncedSearch ? (
+                        <div className="text-center py-12">
+                            <p className="text-sm text-muted-foreground">No status pages found matching "{debouncedSearch}"</p>
                         </div>
-                    ))}
+                    ) : (
+                        <EmptyState
+                            icon={ShieldCheck}
+                            title="No status pages yet"
+                            description="Create a status page to share uptime and incidents with users."
+                            actionLabel="Create Status Page"
+                            onAction={() => setIsModalOpen(true)}
+                        />
+                    )}
+                </div>
+            ) : (
+                <div className="rounded-lg border bg-card overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead>
+                                <tr className="border-b bg-muted/50">
+                                    <th className="h-10 px-4 font-medium text-muted-foreground">Name</th>
+                                    <th className="h-10 px-4 font-medium text-muted-foreground">Slug</th>
+                                    <th className="h-10 px-4 font-medium text-muted-foreground">Monitors</th>
+                                    <th className="h-10 px-4 font-medium text-muted-foreground">Status</th>
+                                    <th className="h-10 px-4 w-[50px]" />
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {statusPages.filter((page) => {
+                                    if (!debouncedSearch) return true;
+                                    const search = debouncedSearch.toLowerCase();
+                                    return (
+                                        page.name.toLowerCase().includes(search) ||
+                                        page.slug.toLowerCase().includes(search)
+                                    );
+                                }).map((page) => (
+                                    <tr key={page.id} className="hover:bg-muted/50 transition-colors">
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="rounded-md bg-secondary p-2">
+                                                    <ShieldCheck className="h-4 w-4" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium truncate">{page.name}</span>
+                                                        <a
+                                                            href={`http://localhost:3000/status/${page.slug}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-muted-foreground hover:text-foreground"
+                                                        >
+                                                            <ExternalLink className="h-3 w-3" />
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        <td className="p-4 text-muted-foreground font-mono">
+                                            /status/{page.slug}
+                                        </td>
+
+                                        <td className="p-4 text-muted-foreground">
+                                            <div className="flex items-center gap-2">
+                                                <Globe className="h-4 w-4" />
+                                                {page.websites?.length || 0}
+                                            </div>
+                                        </td>
+
+                                        <td className="p-4">
+                                            <span
+                                                className={`rounded-full px-3 py-1 text-xs font-semibold ${page.status === "Published"
+                                                        ? "bg-up/15 text-up"
+                                                        : "bg-muted text-muted-foreground"
+                                                    }`}
+                                            >
+                                                {page.status}
+                                            </span>
+                                        </td>
+
+                                        <td className="p-4 text-right">
+                                            <div className="flex justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() =>
+                                                        updateMutation.mutate({
+                                                            id: page.id,
+                                                            status:
+                                                                page.status === "Published" ? "Draft" : "Published",
+                                                        })
+                                                    }
+                                                >
+                                                    {page.status === "Published" ? "—" : "+"}
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-red-500 hover:bg-red-500/10"
+                                                    onClick={() => deleteMutation.mutate(page.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
+            {/* Modal unchanged */}
             <Dialog
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 title="Create New Status Page"
             >
-                <form onSubmit={handleCreate} className="space-y-4">
+                <div className="space-y-4">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium">Name</label>
+                        <label className="text-sm font-medium">Page Name</label>
                         <Input
-                            placeholder="Public Status Page"
-                            required
                             value={newStatusPage.name}
-                            onChange={(e) => setNewStatusPage({ ...newStatusPage, name: e.target.value })}
+                            onChange={(e) =>
+                                setNewStatusPage({ ...newStatusPage, name: e.target.value })
+                            }
                         />
                     </div>
+
                     <div className="space-y-2">
-                        <label className="text-sm font-medium">Slug</label>
-                        <div className="flex gap-2">
-                            <div className="flex items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
-                                /status/
-                            </div>
-                            <Input
-                                placeholder="my-status"
-                                required
-                                value={newStatusPage.slug}
-                                onChange={(e) => setNewStatusPage({ ...newStatusPage, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                            />
-                        </div>
+                        <label className="text-sm font-medium">URL Slug</label>
+                        <Input
+                            value={newStatusPage.slug}
+                            onChange={(e) =>
+                                setNewStatusPage({
+                                    ...newStatusPage,
+                                    slug: e.target.value.toLowerCase().replace(/\s+/g, "-"),
+                                })
+                            }
+                        />
                     </div>
+
                     <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-sm font-medium">
-                            <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                            Select Monitors
-                        </label>
-                        <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto p-1 border rounded-md">
+                        <label className="text-sm font-medium">Select Monitors</label>
+                        <div className="rounded-lg border max-h-56 overflow-y-auto">
                             {websites?.map((w) => (
-                                <label key={w.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-secondary/50 p-2 rounded transition-colors">
+                                <label
+                                    key={w.id}
+                                    className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 cursor-pointer"
+                                >
                                     <input
                                         type="checkbox"
                                         checked={newStatusPage.websiteIds.includes(w.id)}
                                         onChange={() => toggleWebsite(w.id)}
-                                        className="rounded border-gray-300 text-primary focus:ring-primary"
                                     />
-                                    {w.name || w.url}
+                                    <span className="text-sm">{w.name || w.url}</span>
                                 </label>
                             ))}
                         </div>
                     </div>
+
                     <div className="flex justify-end gap-3 pt-4 border-t">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsModalOpen(false)}
-                        >
+                        <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={createMutation.isPending}>
+                        <Button
+                            onClick={() => createMutation.mutate(newStatusPage)}
+                            disabled={createMutation.isPending}
+                        >
                             {createMutation.isPending ? "Creating..." : "Create Status Page"}
                         </Button>
                     </div>
-                </form>
+                </div>
             </Dialog>
         </div>
     );

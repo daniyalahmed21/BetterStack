@@ -25,6 +25,16 @@ async function fetchWebsite(url: string, websiteId: string) {
   const start = Date.now();
   let status: WebsiteStatus = "Unknown";
 
+  // First, verify the website exists
+  const website = await prisma.website.findUnique({
+    where: { id: websiteId },
+  });
+
+  if (!website) {
+    console.log(`[SKIP] Website ${websiteId} not found, skipping check`);
+    return;
+  }
+
   try {
     await axios.get(url, { timeout: 10000 });
     status = "Up";
@@ -35,12 +45,16 @@ async function fetchWebsite(url: string, websiteId: string) {
   const responseTime = Date.now() - start;
 
   // Save tick
-  await prisma.websiteTick.create({
-    data: { websiteId, regionId: REGION_ID, responseTimeMs: responseTime, status },
-  });
+  try {
+    await prisma.websiteTick.create({
+      data: { websiteId, regionId: REGION_ID, responseTimeMs: responseTime, status },
+    });
 
-  // Evaluate multi-region status after each tick
-  await evaluateMultiRegionStatus(websiteId);
+    // Evaluate multi-region status after each tick
+    await evaluateMultiRegionStatus(websiteId);
+  } catch (error: any) {
+    console.error(`[ERROR] Failed to save tick for ${websiteId}:`, error.message);
+  }
 }
 
 async function main() {

@@ -8,6 +8,7 @@ import incidentRoutes from "./routes/incident";
 import heartbeatRoutes from "./routes/heartbeat";
 import statusPageRoutes from "./routes/status-page";
 import alertChannelRoutes from "./routes/alert-channel";
+import { userRouter } from "./routes/user";
 import { startScheduler } from "./scheduler";
 import { initSocket } from "./socket";
 
@@ -40,6 +41,7 @@ app.use("/incidents", incidentRoutes);
 app.use("/heartbeats", heartbeatRoutes);
 app.use("/status-pages", statusPageRoutes);
 app.use("/alert-channels", alertChannelRoutes);
+app.use("/users", userRouter);
 
 app.get("/api/auth/ok", (req: Request, res: Response) => {
   res.json({ status: "ok" });

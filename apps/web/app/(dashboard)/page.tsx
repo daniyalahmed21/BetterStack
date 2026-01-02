@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Filter, ChevronDown, ChevronUp, Globe, Clock, Zap } from "lucide-react";
+import { Plus, Filter, ChevronDown, ChevronUp, Globe, Clock, Zap } from "lucide-react";
 import { getWebsites, createWebsite, getRegions } from "@/lib/api/websites";
 import { WebsiteCard } from "@/components/website-card";
 import { Skeleton } from "@/components/skeleton";
@@ -11,12 +11,16 @@ import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { useSocket } from "@/lib/hooks/use-socket";
 import { EmptyState } from "@/components/empty-state";
+import { SearchInput } from "@/components/search-input";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
   const socket = useSocket();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [newWebsite, setNewWebsite] = useState({
     name: "",
     url: "",
@@ -69,6 +73,15 @@ export default function DashboardPage() {
     createMutation.mutate(newWebsite);
   };
 
+  const filteredWebsites = websites?.filter((w) => {
+    if (!debouncedSearch) return true;
+    const search = debouncedSearch.toLowerCase();
+    return (
+      w.name?.toLowerCase().includes(search) ||
+      w.url.toLowerCase().includes(search)
+    );
+  });
+
   if (error) {
     return (
       <div className="flex h-[400px] items-center justify-center rounded-lg border border-dashed">
@@ -102,10 +115,12 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search monitors..." className="pl-9" />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search monitors..."
+          className="flex-1 max-w-sm"
+        />
         <Button variant="outline" size="icon">
           <Filter className="h-4 w-4" />
         </Button>
@@ -116,17 +131,23 @@ export default function DashboardPage() {
           ? Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-[200px] w-full rounded-xl" />
           ))
-          : websites?.length === 0 ? (
+          : filteredWebsites?.length === 0 ? (
             <div className="col-span-full">
-              <EmptyState
-                icon={Plus}
-                title="No monitors yet"
-                description="Create your first monitor to start tracking the uptime and performance of your websites."
-                actionLabel="Create Monitor"
-                onAction={() => setIsModalOpen(true)}
-              />
+              {debouncedSearch ? (
+                <div className="text-center py-12">
+                  <p className="text-sm text-muted-foreground">No monitors found matching "{debouncedSearch}"</p>
+                </div>
+              ) : (
+                <EmptyState
+                  icon={Plus}
+                  title="No monitors yet"
+                  description="Create your first monitor to start tracking the uptime and performance of your websites."
+                  actionLabel="Create Monitor"
+                  onAction={() => setIsModalOpen(true)}
+                />
+              )}
             </div>
-          ) : websites?.map((website) => (
+          ) : filteredWebsites?.map((website) => (
             <WebsiteCard
               key={website.id}
               id={website.id}
