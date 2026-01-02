@@ -3,6 +3,7 @@ const API_BASE_URL = "http://localhost:3001";
 export interface User {
   id: string;
   name: string;
+  organizationName?: string;
   email: string;
   image?: string;
 }

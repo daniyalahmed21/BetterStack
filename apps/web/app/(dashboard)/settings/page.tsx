@@ -21,6 +21,7 @@ export default function SettingsPage() {
 
     const [formData, setFormData] = useState({
         name: "",
+        organizationName: "",
         email: "",
         timezone: "UTC", // Dummy timezone for now
     });
@@ -29,6 +30,7 @@ export default function SettingsPage() {
         if (user) {
             setFormData({
                 name: user.name,
+                organizationName: user.organizationName || "",
                 email: user.email,
                 timezone: "UTC",
             });
@@ -48,7 +50,10 @@ export default function SettingsPage() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        updateMutation.mutate({ name: formData.name });
+        updateMutation.mutate({
+            name: formData.name,
+            organizationName: formData.organizationName
+        });
     };
 
     if (isLoading) {
@@ -88,8 +93,8 @@ export default function SettingsPage() {
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Organization Name</label>
                                 <Input
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    value={formData.organizationName}
+                                    onChange={(e) => setFormData({ ...formData, organizationName: e.target.value })}
                                     placeholder="My Organization"
                                 />
                                 <p className="text-xs text-muted-foreground">

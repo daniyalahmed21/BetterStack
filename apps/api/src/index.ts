@@ -26,7 +26,7 @@ app.use((req, res, next) => {
 app.use(
   cors({
     origin: true, // Reflect request origin
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
   })

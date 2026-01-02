@@ -12,6 +12,7 @@ router.get("/me", requireAuth, async (req, res) => {
       select: {
         id: true,
         name: true,
+        organizationName: true,
         email: true,
         image: true,
       },
@@ -37,11 +38,13 @@ router.patch("/me", requireAuth, async (req, res) => {
       where: { id: req.userId },
       data: {
         name,
+        organizationName: req.body.organizationName,
         image,
       },
       select: {
         id: true,
         name: true,
+        organizationName: true,
         email: true,
         image: true,
       },

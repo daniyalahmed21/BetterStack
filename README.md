@@ -1,205 +1,120 @@
-# Active Monitoring
+# BetterStack
 
-![Dashboard](dashboard.png)
-![Alerting](alerting.png)
+A production-grade uptime monitoring solution built with modern web technologies.
 
-* **actively pings websites**
-* **does NOT rely on the user’s code**
-* works even if their server is **completely dead**
+![Dashboard](images/Dashboard.png)
+![Incidents](images/Incidents.png)
+![HeartBeats](images/HeartBeats.png)
+![Status Page](images/Status-Page.png)
+![Status Page live](images/Status-Page-live.png)
+![Analytics](images/Analytics.png)
+![Settings](images/Settings.png)
 
-User only gives:
+## Overview
 
-* Website URL
-* Check interval
-* Alert rules
+BetterStack Clone is a robust uptime monitoring platform that actively checks your websites and services from multiple regions. It provides real-time alerts, detailed incident management, and public status pages to keep your users informed.
 
-That’s it.
+Unlike passive monitoring tools, this system **actively pings** your endpoints, ensuring you know about downtime the moment it happens, even if your server is completely unresponsive.
 
-## 1️⃣ Core Components
+##  Key Features
 
-```
-User Dashboard
-   ↓
-API (Bun + Express)
-   ↓
-Redis (Jobs Queue)
-   ↓
-Uptime Workers (per region)
-   ↓
-Target Websites
-   ↓
-Postgres (results)
-   ↓
-Alerts
-```
+-   **Multi-Region Monitoring**: Run worker nodes in different geographic locations to verify uptime from a global perspective.
+-   **Real-Time Dashboard**: Live updates of your monitors with search, filtering, and instant status feedback.
+-   **Incident Management**: Automatic incident creation when downtime is detected, with tracking for start time, end time, and cause.
+-   **Multi-Channel Alerting**: Get notified via Email, Slack, SMS, or Voice calls (configurable via escalation policies).
+-   **Heartbeat Monitoring**: Monitor cron jobs, background workers, and scheduled tasks by listening for incoming heartbeats.
+-   **Status Pages**: Create beautiful, public-facing status pages to communicate system health to your users.
+-   **Team & Settings**: Manage your organization profile, team members, and notification preferences.
 
-## 2️⃣ Step-by-Step Flow 
+## Tech Stack
 
-### Step 1: User adds a website
+-   **Frontend**: [Next.js](https://nextjs.org/) (React), Tailwind CSS, Shadcn UI, TanStack Query.
+-   **Backend**: [Express](https://expressjs.com/) (Node.js), [Prisma](https://www.prisma.io/) (ORM).
+-   **Database**: [PostgreSQL](https://www.postgresql.org/) (Primary DB), [Redis](https://redis.io/) (Streams).
+-   **Authentication**: [Better Auth](https://www.better-auth.com/).
 
-User enters:
+## Architecture
 
-* [https://example.com](https://example.com)
-* Check every 60 seconds
+The system is built on a distributed architecture to ensure reliability and scalability.
 
-API saves this in DB:
-
-```
-website
-- id
-- url
-- interval
-- enabled
-```
-
-### Step 2: Scheduler creates uptime jobs
-
-Every X seconds:
-
-* Scheduler finds websites that need checking
-* Pushes jobs to Redis
-
-Example Redis job:
-
-```
-{
-  websiteId: "abc123",
-  url: "https://example.com"
-}
+```mermaid
+graph TD
+    User[User Dashboard] --> API[API Server]
+    API --> Redis[Redis Job Queue]
+    Redis --> Worker1[Worker (Region A)]
+    Redis --> Worker2[Worker (Region B)]
+    Worker1 --> Website[Target Website]
+    Worker2 --> Website
+    Worker1 --> DB[(PostgreSQL)]
+    Worker2 --> DB
+    DB --> AlertService[Alert Service]
+    AlertService --> Email[Email]
+    AlertService --> Slack[Slack]
 ```
 
-### Step 3: Workers pick jobs
+### Core Components
 
-Workers:
+1.  **API Server**: Handles user requests, manages resources (monitors, incidents, etc.), and schedules monitoring jobs.
+2.  **Redis Queue**: Distributes monitoring tasks to worker nodes.
+3.  **Uptime Workers**: Stateless workers that consume jobs from Redis, perform HTTP checks, and report results.
+4.  **Consensus Engine**: Determines the true status of a website based on reports from multiple regions (prevents false positives).
 
-* Run forever
-* Listen to Redis streams
-* Pick jobs assigned to their region
+## Getting Started
 
-Your code:
+### Prerequisites
 
-```ts
-xReadGroup(REGION_ID, WORKER_ID)
-```
+-   Node.js 18+
+-   pnpm
+-   PostgreSQL
+-   Redis
 
-This means:
+### Installation
 
-> “Give me websites to check”
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/yourusername/betterstack-clone.git
+    cd betterstack-clone
+    ```
 
+2.  **Install dependencies**:
+    ```bash
+    pnpm install
+    ```
 
-### Step 4: Worker checks website
+3.  **Environment Setup**:
+    -   Copy `.env.example` to `.env` in `apps/web`, `apps/api`, `apps/worker`, and `packages/databases`.
+    -   Update the variables with your local configuration (DB URL, Redis URL, etc.).
 
-Worker:
+4.  **Database Setup**:
+    ```bash
+    cd packages/databases
+    pnpm prisma db push
+    ```
 
-* Starts timer
-* Calls `axios.get(url)`
-* Waits for response or timeout
+5.  **Start Development Servers**:
+    ```bash
+    # Start all services (Frontend, API, Worker)
+    pnpm run dev
+    ```
 
-Results:
+    -   **Web**: http://localhost:3000
+    -   **API**: http://localhost:3001
+    -   **Prisma Studio**: http://localhost:5555
 
-* Response → UP
-* Error / timeout → DOWN
+## Region-Based Monitoring
 
+To simulate multi-region monitoring locally:
 
-### Step 5: Store uptime result
+1.  Start the default worker: `pnpm run dev` in `apps/worker`.
+2.  Start a second worker with a different region ID:
+    ```bash
+    REGION_ID=us-west-1 pnpm run dev
+    ```
 
-Each check creates one row:
+## Contributing
 
-```
-website_tick
-- website_id
-- region_id
-- status (Up / Down)
-- response_time_ms
-- timestamp
-```
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-This builds:
+## License
 
-* History
-* Graphs
-* SLA
-* Incidents
-
-
-### Step 6: Incident detection 
-
-You **don’t alert on first failure**.
-
-Instead:
-
-* Check last N ticks
-* Example rule:
-
-  * Down 3 times in a row → Incident
-
-```
-incident
-- website_id
-- started_at
-- status (open / resolved)
-```
-
----
-
-### Step 7: Alert user
-
-When incident starts:
-
-* Send email
-* Send Slack
-* Send webhook
-
-When recovered:
-
-* Send recovery notification
-
-
-## 3️⃣ Full Active Monitoring Diagram
-
-```
-┌──────────────┐
-│   User UI    │
-│  (Dashboard) │
-└──────┬───────┘
-       │
-       ▼
-┌────────────────────┐
-│ API Server         │
-│ (Bun + Express)    │
-│ - Websites         │
-│ - Alerts           │
-└──────┬─────────────┘
-       │
-       ▼
-┌────────────────────┐
-│ Redis Streams      │
-│ uptime_jobs        │
-└──────┬─────────────┘
-       │
-       ▼
-┌────────────────────────────┐
-│ Uptime Worker              │
-│ REGION = eu / us / asia    │
-│                            │
-│ axios.get(url)             │
-└──────┬─────────────────────┘
-       │
-       ▼
-┌────────────────────┐
-│ Target Website     │
-└──────┬─────────────┘
-       │
-       ▼
-┌────────────────────┐
-│ Postgres           │
-│ website_tick       │
-│ incident           │
-└──────┬─────────────┘
-       │
-       ▼
-┌────────────────────┐
-│ Alert Service      │
-│ Email / Slack      │
-└────────────────────┘
-```
+This project is licensed under the MIT License.

@@ -36,3 +36,5 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+MONITORING_SETUP.md
+SEARCH_INTEGRATION_GUIDE.md

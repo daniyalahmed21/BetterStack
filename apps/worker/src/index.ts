@@ -58,6 +58,21 @@ async function fetchWebsite(url: string, websiteId: string) {
 }
 
 async function main() {
+  // Ensure region exists
+  try {
+    await prisma.region.upsert({
+      where: { name: REGION_ID },
+      update: {},
+      create: {
+        id: REGION_ID,
+        name: REGION_ID,
+      },
+    });
+    console.log(`[${WORKER_ID}] Region "${REGION_ID}" verified/created`);
+  } catch (error) {
+    console.error(`[ERROR] Failed to ensure region "${REGION_ID}":`, error);
+  }
+
   while (true) {
     try {
       const response: any = await redis.xReadGroup(
