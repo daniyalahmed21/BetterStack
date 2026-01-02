@@ -37,19 +37,44 @@ Unlike passive monitoring tools, this system **actively pings** your endpoints, 
 
 The system is built on a distributed architecture to ensure reliability and scalability.
 
-```mermaid
-graph TD
-    User[User Dashboard] --> API[API Server]
-    API --> Redis[Redis Job Queue]
-    Redis --> Worker1[Worker (Region A)]
-    Redis --> Worker2[Worker (Region B)]
-    Worker1 --> Website[Target Website]
-    Worker2 --> Website
-    Worker1 --> DB[(PostgreSQL)]
-    Worker2 --> DB
-    DB --> AlertService[Alert Service]
-    AlertService --> Email[Email]
-    AlertService --> Slack[Slack]
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     User Dashboard                          │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                    ┌────▼────┐
+                    │ API     │
+                    │ Server  │
+                    └────┬────┘
+                         │
+              ┌──────────▼────────┐
+              │ Redis Job Queue   │
+              └──────┬──────┬─────┘
+                     │      │
+         ┌───────────┘      └───────────┐
+         │                              │
+    ┌────▼─────────┐            ┌──────▼──────┐
+    │ Worker       │            │ Worker      │
+    │ (Region A)   │            │ (Region B)  │
+    └────┬─────────┘            └──────┬──────┘
+         │                             │
+         │       ┌────────────┐        │
+         └─────▶│   Target   │◀───────┘
+                 │  Website   │
+                 └──────┬─────┘
+                        │
+                 ┌──────▼──────────┐
+                 │    PostgreSQL   │
+                 │    Database     │
+                 └──────┬──────────┘
+                        │
+              ┌─────────▼─────────┐
+              │  Alert Service    │
+              └────┬──────────┬───┘
+                   │          │
+            ┌──────▼┐    ┌────▼────┐
+            │ Email │    │  Slack  │
+            └───────┘    └─────────┘
 ```
 
 ### Core Components
